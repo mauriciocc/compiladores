@@ -21,7 +21,7 @@ public class Token {
   }
 
   public String toString() {
-    return "["+ (tipo == 'n' ? "" + valor : "" + tipo)+"]";
+    return "["+ (tipo == 'n' ? tipo + ", " + valor : "" + tipo)+"]";
   }
 
 }
