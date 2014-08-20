@@ -1,12 +1,12 @@
 
 import java.util.*;
 
-public class SyntacticAnalyser {
+public class Interpreter {
 
     private List<Token> tokens;
     private int level = 0;
 
-    public SyntacticAnalyser() {
+    public Interpreter() {
     }
 
     private void call(String s) {
@@ -31,49 +31,52 @@ public class SyntacticAnalyser {
         return E();
     }
 
-    private double E() // E -> T | T + E
+    private double E() // E -> T [(+|-) T]*
     {
         double value = 0;
-        level++;
-        call("E");
         value = T();
-        if (tokens.get(0).getType() == '+') {
+        Token token = tokens.get(0);
+        char type = token.getType();
+        while (type == '+' || type == '-') {
             tokens.remove(0);
-            value += E();
-        } else if (tokens.get(0).getType() == '-') {
-            tokens.remove(0);
-            value -= E();
+            if (type == '+') {
+                value += T();
+            } else if (type == '-') {
+                value -= T();
+            }
+
+            //next
+            token = tokens.get(0);
+            type = token.getType();
         }
-        level--;
         return value;
     }
 
-    private double T() // T -> F | F * T
+    private double T() // T -> [(*|/) F]*
     {
         double value = 0;
-        level++;
-        call("T");
+
         value = F();
-        if (tokens.get(0).getType() == '*') {
+        Token token = tokens.get(0);
+        char type = token.getType();
+        while (type == '*' || type == '/') {
             tokens.remove(0);
-            value *= T();
-        } else if (tokens.get(0).getType() == '/') {
-            tokens.remove(0);
-            double t = T();
-            if(t == 0) {
-                throw new ArithmeticException("cannot divide by 0");
+            if (type == '*') {
+                value *= F();
+            } else if (type == '/') {
+                value /= F();
             }
-            value /= t;
+
+            //next
+            token = tokens.get(0);
+            type = token.getType();
         }
-        level--;
         return value;
     }
 
     private double F() // F -> n | (E)
     {
         double value = 0;
-        level++;
-        call("F");
         if (tokens.get(0).getType() == 'n') {
             value = tokens.remove(0).getValue();
         } else if (tokens.get(0).getType() == '(') {
@@ -86,7 +89,6 @@ public class SyntacticAnalyser {
         } else {
             error(tokens.get(0));
         }
-        level--;
         return value;
     }
 
