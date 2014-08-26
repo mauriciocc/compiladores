@@ -27,8 +27,9 @@ public class VirtualMachine
         // Abre arquivo especificado e executa cada linha lida do mesmo       
         
         Scanner entrada = new Scanner(args[0]);
-        while ((s = entrada.nextLine()) != null)
+        while (entrada.hasNext())
         {
+            s = entrada.nextLine();
             linha++;
             if (s.compareTo("ADIC") == 0) // operador de adicao
             {
