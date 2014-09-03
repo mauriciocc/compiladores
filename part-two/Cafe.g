@@ -8,8 +8,9 @@ tokens
   MINUS = '-';
   TIMES = '*';
   OVER = '/';
+  REMAINDER = '%';
   OPEN_P = '(';
-  CLOSE_P = ')';
+  CLOSE_P = ')';  
   PRINT = 'print';
 }
 
@@ -81,8 +82,8 @@ tokens
     ;
   
   term    
-  :   factor ( op = ( TIMES | OVER ) factor 
-                { System.out.println($op.type == TIMES ? "imul" : "idiv"); } 
+  :   factor ( op = ( TIMES | OVER | REMAINDER ) factor 
+                { System.out.println($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem"); } 
   )*
     
     ;    
