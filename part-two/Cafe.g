@@ -24,6 +24,8 @@ tokens
 @members
 {
   //private static ArrayList<String> symbol_table;
+  private static int currentStack = 0;
+  private static int maxStack = 0;
   
   public static void main(String[] args) throws Exception
   {
@@ -47,9 +49,22 @@ tokens
     System.out.println(".method public static main([Ljava/lang/String;)V");               
     parser.program();
     System.out.println("return");
-    System.out.println(".limit stack 50");    
+    System.out.println(".limit stack " + maxStack);    
     System.out.println(".end method");
   }
+  
+  private static void incrementStack(int val) {
+    if(val < 0) {
+      currentStack -= val;
+    } else {
+      currentStack += val;
+      if(currentStack > maxStack) {
+        maxStack = currentStack;
+      }
+    }
+  }
+      
+    
 }
 
 /*---------------- LEXER RULES ----------------*/
@@ -72,25 +87,25 @@ tokens
   : 
   { System.out.println("getstatic java/lang/System/out Ljava/io/PrintStream;"); }
   PRINT exp_arithmetic
-  { System.out.println("invokevirtual  java/io/PrintStream/println(I)V"); }
+  { System.out.println("invokevirtual  java/io/PrintStream/println(I)V"); incrementStack(-2); }
   ;
   
   exp_arithmetic
   :   term ( op = ( PLUS | MINUS ) term 
-              { System.out.println($op.type == PLUS ? "iadd" : "isub"); }
+              { System.out.println($op.type == PLUS ? "iadd" : "isub"); incrementStack(1);}
   )*
     ;
   
   term    
   :   factor ( op = ( TIMES | OVER | REMAINDER ) factor 
-                { System.out.println($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem"); } 
+                { System.out.println($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem");  incrementStack(1);} 
   )*
     
     ;    
   
   factor
   :   NUM
-  { System.out.println("ldc "+$NUM.text); }
+  { System.out.println("ldc "+$NUM.text);  incrementStack(1);}
   | OPEN_P exp_arithmetic CLOSE_P
     ;
   
