@@ -1,0 +1,9 @@
+exp_arithmetic -> term (+- term)*
+term -> factor (*/ factor)*
+factor > NUM | (exp_artit)
+
+-- Definition
+
+program -> (statement)*
+statement -> print
+print -> PRINT exp_arithmetic

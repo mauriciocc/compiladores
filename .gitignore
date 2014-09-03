@@ -1,3 +1,6 @@
 *.class
 *.tokens
 *~
+*.j
+*Lexer.java
+*Parser.java
