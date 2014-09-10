@@ -12,18 +12,20 @@ tokens
   OPEN_P = '(';
   CLOSE_P = ')';  
   PRINT = 'print';
+  ATTRIB = '=';
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
 
 @header
 {
-  //import java.util.ArrayList;
+  import java.util.List;
+  import java.util.ArrayList;
 }
 
 @members
 {
-  //private static ArrayList<String> symbol_table;
+  private static List<String> symbol_table;
   private static int currentStack = 0;
   private static int maxStack = 0;
   
@@ -34,8 +36,8 @@ tokens
     CommonTokenStream tokens = new CommonTokenStream(lexer);
     CafeParser parser = new CafeParser(tokens);
     
-    //symbol_table = new ArrayList<String>();        
-    
+    symbol_table = new ArrayList<String>();  
+    symbol_table.add("args");   
     
     System.out.println(".source Entrada.j");
     System.out.println(".class  public Entrada");
@@ -50,19 +52,23 @@ tokens
     parser.program();
     System.out.println("return");
     System.out.println(".limit stack " + maxStack);    
+    System.out.println(".limit locals " + symbol_table.size());    
     System.out.println(".end method");
   }
   
-  private static void incrementStack(int val) {
-    if(val < 0) {
-      currentStack -= val;
-    } else {
+    private static void generateCode(String code, int val) {         
+      System.out.println(code);
+      incrementStack(val);      
+    }
+  
+  
+  private static void incrementStack(int val) {         
       currentStack += val;
       if(currentStack > maxStack) {
         maxStack = currentStack;
       }
     }
-  }
+  
       
     
 }
@@ -71,6 +77,7 @@ tokens
 
   NUM     : '0'..'9'+;
   SPACE   : (' '|'\t'|'\r'|'\n')+ { skip(); } ;
+  VARIABLE: 'a'..'z'+;
   
   
   /*---------------- PARSER RULES ----------------*/
@@ -80,32 +87,47 @@ tokens
     ;
   
   statement
-  :  print
-    ;  
-  
+  : print | attribuition
+  ;  
+     
   print
   : 
-  { System.out.println("getstatic java/lang/System/out Ljava/io/PrintStream;"); }
+  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 0); }
   PRINT exp_arithmetic
-  { System.out.println("invokevirtual  java/io/PrintStream/println(I)V"); incrementStack(-2); }
+  { generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2); }
   ;
   
+  attribuition
+  : VARIABLE ATTRIB exp_arithmetic 
+  {
+    if(symbol_table.contains($VARIABLE.text)) {
+      generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), 1);
+    } else {
+      symbol_table.add($VARIABLE.text); 
+      generateCode("istore " + (symbol_table.size()-1), 1);
+    }
+  }
+  ;
+    
   exp_arithmetic
   :   term ( op = ( PLUS | MINUS ) term 
-              { System.out.println($op.type == PLUS ? "iadd" : "isub"); incrementStack(1);}
+              { generateCode($op.type == PLUS ? "iadd" : "isub", 1);}
   )*
     ;
   
   term    
   :   factor ( op = ( TIMES | OVER | REMAINDER ) factor 
-                { System.out.println($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem");  incrementStack(1);} 
+                { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", 1);} 
   )*
     
     ;    
   
   factor
-  :   NUM
-  { System.out.println("ldc "+$NUM.text);  incrementStack(1);}
-  | OPEN_P exp_arithmetic CLOSE_P
+  :   
+    NUM
+    { generateCode("ldc " + $NUM.text, 1);}
+    | OPEN_P exp_arithmetic CLOSE_P
+    | VARIABLE
+    { generateCode("iload " + (symbol_table.indexOf($VARIABLE.text)), -1);}
     ;
   
