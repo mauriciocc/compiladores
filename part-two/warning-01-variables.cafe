@@ -1,0 +1,6 @@
+// warning using variables
+
+a = 2
+b = a * 3 // 'b' is not used later
+print a
+

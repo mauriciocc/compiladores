@@ -120,20 +120,20 @@ tokens
       generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), 0);
     } else {
       symbol_table.add($VARIABLE.text); 
-      generateCode("istore " + (symbol_table.size()-1), 0);
+      generateCode("istore " + (symbol_table.size()-1), -1);
     }
   }
   ;
     
   exp_arithmetic
   :   term ( op = ( PLUS | MINUS ) term 
-              { generateCode($op.type == PLUS ? "iadd" : "isub", -2);}
+              { generateCode($op.type == PLUS ? "iadd" : "isub", -1);}
   )*
     ;
   
   term    
   :   factor ( op = ( TIMES | OVER | REMAINDER ) factor 
-                { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -2);} 
+                { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -1);} 
   )*
     
     ;    
