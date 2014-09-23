@@ -43,8 +43,8 @@ tokens
     symbolAccess = new HashMap<String, Integer>();
     symbol_table.add("args");   
     
-    System.out.println(".source Entrada.j");
-    System.out.println(".class  public Entrada");
+    System.out.println(".source Teste.j");
+    System.out.println(".class  public Teste");
     System.out.println(".super  java/lang/Object");
     
     System.out.println(".method public <init>()V");
@@ -59,9 +59,10 @@ tokens
     System.out.println(".limit locals " + symbol_table.size());    
     System.out.println(".end method");
     
+    symbol_table.remove(0); //Retira args
     for(String variable : symbol_table) {
       if(!symbolAccess.containsKey(variable)) {
-        System.out.println("; WARNING: variable '"+ variable + "' is declared but never used");
+        System.err.println("WARNING: variable '"+ variable + "' is declared but never used");
       }
     }
   }
@@ -92,7 +93,7 @@ tokens
   NUM     : '0'..'9'+;
   SPACE   : (' '|'\t'|'\r'|'\n')+ { skip(); } ;
   VARIABLE: 'a'..'z'+;
-  /*COMMENT: '//' -('\r'|'\n')* { skip(); }*/
+  COMMENT : '//' ~('\r'|'\n')* { skip(); } ;
   
   
   /*---------------- PARSER RULES ----------------*/
@@ -107,7 +108,7 @@ tokens
      
   print
   : 
-  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 0); }
+  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
   PRINT exp_arithmetic
   { generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2); }
   ;
@@ -116,10 +117,10 @@ tokens
   : VARIABLE ATTRIB exp_arithmetic 
   {
     if(symbol_table.contains($VARIABLE.text)) {
-      generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), -1);
+      generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), 0);
     } else {
       symbol_table.add($VARIABLE.text); 
-      generateCode("istore " + (symbol_table.size()-1), 1);
+      generateCode("istore " + (symbol_table.size()-1), 0);
     }
   }
   ;
@@ -145,10 +146,10 @@ tokens
     | VARIABLE
     { 
       if(symbol_table.contains($VARIABLE.text)) {
-        generateCode("iload " + (symbol_table.indexOf($VARIABLE.text)), -2);
+        generateCode("iload " + (symbol_table.indexOf($VARIABLE.text)), 1);
         registerVarAccess($VARIABLE.text);
       } else {
-        throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined: "+ $VARIABLE);
+        throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");
       }
     }
     ;
