@@ -1,6 +1,7 @@
 a = 30
 b = 50
 a = 10 - b
+jota = 99
 print a
 print (50 - 99)
 print 98 + 45 - 315 / 2 * 3
@@ -8,4 +9,3 @@ print 3030
 print 7412398
 print 3 % 2
 print a + b
-print cecedilha

@@ -21,11 +21,14 @@ tokens
 {
   import java.util.List;
   import java.util.ArrayList;
+    import java.util.Map;
+  import java.util.HashMap;
 }
 
 @members
 {
   private static List<String> symbol_table;
+  private static Map<String, Integer> symbolAccess;
   private static int currentStack = 0;
   private static int maxStack = 0;
   
@@ -37,6 +40,7 @@ tokens
     CafeParser parser = new CafeParser(tokens);
     
     symbol_table = new ArrayList<String>();  
+    symbolAccess = new HashMap<String, Integer>();
     symbol_table.add("args");   
     
     System.out.println(".source Entrada.j");
@@ -54,6 +58,12 @@ tokens
     System.out.println(".limit stack " + maxStack);    
     System.out.println(".limit locals " + symbol_table.size());    
     System.out.println(".end method");
+    
+    for(String variable : symbol_table) {
+      if(!symbolAccess.containsKey(variable)) {
+        System.out.println("; WARNING: variable '"+ variable + "' is declared but never used");
+      }
+    }
   }
   
     private static void generateCode(String code, int val) {         
@@ -69,6 +79,10 @@ tokens
       }
     }
   
+  private static void registerVarAccess(String name) {
+    symbolAccess.put(name, symbolAccess.containsKey(name) ? symbolAccess.get(name)+1 : 1);
+  }
+  
       
     
 }
@@ -78,6 +92,7 @@ tokens
   NUM     : '0'..'9'+;
   SPACE   : (' '|'\t'|'\r'|'\n')+ { skip(); } ;
   VARIABLE: 'a'..'z'+;
+  /*COMMENT: '//' -('\r'|'\n')* { skip(); }*/
   
   
   /*---------------- PARSER RULES ----------------*/
@@ -111,13 +126,13 @@ tokens
     
   exp_arithmetic
   :   term ( op = ( PLUS | MINUS ) term 
-              { generateCode($op.type == PLUS ? "iadd" : "isub", 1);}
+              { generateCode($op.type == PLUS ? "iadd" : "isub", -2);}
   )*
     ;
   
   term    
   :   factor ( op = ( TIMES | OVER | REMAINDER ) factor 
-                { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", 1);} 
+                { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -2);} 
   )*
     
     ;    
@@ -130,9 +145,10 @@ tokens
     | VARIABLE
     { 
       if(symbol_table.contains($VARIABLE.text)) {
-        generateCode("iload " + (symbol_table.indexOf($VARIABLE.text)), 1);
+        generateCode("iload " + (symbol_table.indexOf($VARIABLE.text)), -2);
+        registerVarAccess($VARIABLE.text);
       } else {
-        throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined");
+        throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined: "+ $VARIABLE);
       }
     }
     ;
