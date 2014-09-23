@@ -117,7 +117,7 @@ tokens
   : VARIABLE ATTRIB exp_arithmetic 
   {
     if(symbol_table.contains($VARIABLE.text)) {
-      generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), 0);
+      generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), -1);
     } else {
       symbol_table.add($VARIABLE.text); 
       generateCode("istore " + (symbol_table.size()-1), -1);

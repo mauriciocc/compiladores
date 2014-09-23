@@ -1,6 +1,9 @@
 a = 30
 b = 50
 a = 10 - b
+a = 35
+a = 99
+a = 12
 jota = 99
 print a
 print (50 - 99)
