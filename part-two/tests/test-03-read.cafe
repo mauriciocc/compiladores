@@ -1,0 +1,8 @@
+// read test
+
+a = 0
+b = 0
+read a
+read b
+print a + b
+

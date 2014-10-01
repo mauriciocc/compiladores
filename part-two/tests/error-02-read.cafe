@@ -1,0 +1,5 @@
+// error using read
+
+read n // 'n' not declared yet
+print n
+
