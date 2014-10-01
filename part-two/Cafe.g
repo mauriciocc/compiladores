@@ -10,9 +10,20 @@ tokens
   OVER = '/';
   REMAINDER = '%';
   OPEN_P = '(';
-  CLOSE_P = ')';  
+  CLOSE_P = ')'; 
   PRINT = 'print';
+  READ = 'read';
+  LOOP = 'while';
   ATTRIB = '=';
+  OPEN_C = '{'; 
+  CLOSE_C = '}';
+  GT = '>';
+  GE = '>=';
+  LT = '<';
+  LE = '<=';
+  EQ = '==';
+  NE = '!=';
+  
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
@@ -21,7 +32,7 @@ tokens
 {
   import java.util.List;
   import java.util.ArrayList;
-    import java.util.Map;
+  import java.util.Map;
   import java.util.HashMap;
 }
 
@@ -31,6 +42,7 @@ tokens
   private static Map<String, Integer> symbolAccess;
   private static int currentStack = 0;
   private static int maxStack = 0;
+  private static int whileCount = 0;
   
   public static void main(String[] args) throws Exception
   {
@@ -66,9 +78,18 @@ tokens
       }
     }
   }
-  
-    private static void generateCode(String code, int val) {         
+
+
+    private static void generateCode(String code, int val) {   
+	    generateCode(code, val, true);
+    }  
+    
+    private static void generateCode(String code, int val, boolean newLine) {         
+    if(newLine) {
       System.out.println(code);
+      } else {
+      System.out.print(code);
+      }
       incrementStack(val);      
     }
   
@@ -103,9 +124,34 @@ tokens
     ;
   
   statement
-  : print | attribuition
+  : print | attribuition | read | loop
   ;  
+  
+  loop
+  : 
+       	{generateCode("BEGIN_WHILE_"+(++whileCount)+":", 0);}
+  	LOOP exp_comparison 
+       	{generateCode(" END_WHILE_"+(whileCount)+" ;", 0);}
+  	OPEN_C (statement)* CLOSE_C	
+  	       	{generateCode("END_WHILE_"+(whileCount)+":", 0);}
+  ;
+  
      
+  read
+  	:	READ VARIABLE
+     	{
+     		generateCode("invokestatic Runtime/readInt()I ;", 1);  
+		if(symbol_table.contains($VARIABLE.text)) {
+			generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), -1);
+		} else {
+			throw new IllegalStateException("Error: Trying to put read value on an undefined variable '"+$VARIABLE.text+"' on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");
+		}
+	} 
+     	;
+     	
+
+     	
+     	
   print
   : 
   { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
@@ -122,13 +168,39 @@ tokens
       symbol_table.add($VARIABLE.text); 
       generateCode("istore " + (symbol_table.size()-1), -1);
     }
-  }
+  } 
   ;
     
   exp_arithmetic
   :   term ( op = ( PLUS | MINUS ) term 
               { generateCode($op.type == PLUS ? "iadd" : "isub", -1);}
   )*
+    ;
+    
+  exp_comparison
+  :   exp_arithmetic ( op = ( GT | GE | LT | LE | EQ | NE ) )  exp_arithmetic 
+              { 
+              String val = null;
+	              	if($op.type == GT) {
+		         val = "if_icmpgt";                  	
+			} else if($op.type == GE) {
+					         val = "if_icmpge";
+          	
+			} else if($op.type == LT) {
+								         val = "if_icmplt";
+      	
+			} else if($op.type == LE) {
+								         val = "if_icmple";
+
+			} else if($op.type == EQ) {
+								         val = "if_icmpeq";
+
+			} else if($op.type == NE) {
+								         val = "if_icmpne";
+
+		        }
+		        generateCode(val, -2, false); 
+              }
     ;
   
   term    
