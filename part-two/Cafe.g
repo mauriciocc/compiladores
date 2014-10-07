@@ -43,6 +43,7 @@ tokens
   private static int currentStack = 0;
   private static int maxStack = 0;
   private static int whileCount = 0;
+  private static int identationLevel = 1;
   
   public static void main(String[] args) throws Exception
   {
@@ -58,14 +59,17 @@ tokens
     System.out.println(".source Teste.j");
     System.out.println(".class  public Teste");
     System.out.println(".super  java/lang/Object");
-    
+    System.out.println();
     System.out.println(".method public <init>()V");
-    System.out.println("aload_0");
-    System.out.println("invokenonvirtual java/lang/Object/<init>()V");
-    System.out.println("return");
+    System.out.println("\taload_0");
+    System.out.println("\tinvokenonvirtual java/lang/Object/<init>()V");
+    System.out.println("\treturn");
     System.out.println(".end method");
+	System.out.println();
     System.out.println(".method public static main([Ljava/lang/String;)V");               
+	System.out.println();
     parser.program();
+	System.out.println();
     System.out.println("return");
     System.out.println(".limit stack " + maxStack);    
     System.out.println(".limit locals " + symbol_table.size());    
@@ -85,6 +89,7 @@ tokens
     }  
     
     private static void generateCode(String code, int val, boolean newLine) {         
+	code = ident(code);
     if(newLine) {
       System.out.println(code);
       } else {
@@ -103,6 +108,23 @@ tokens
   
   private static void registerVarAccess(String name) {
     symbolAccess.put(name, symbolAccess.containsKey(name) ? symbolAccess.get(name)+1 : 1);
+  }
+  
+  private static String replicate(String s, int times) {
+  StringBuilder sb = new StringBuilder("");
+	for(int i = 0; i < times; i++) {
+		sb.append(s);
+	}
+	return sb.toString(); 
+  
+  }
+  
+  private static String ident(String s) {
+	return replicate("\t", identationLevel) + s;
+  }
+  
+  private static void incrIdent(int i) {
+	identationLevel += i;
   }
   
       
@@ -129,11 +151,25 @@ tokens
   
   loop
   : 
-       	{generateCode("BEGIN_WHILE_"+(++whileCount)+":", 0);}
-  	LOOP exp_comparison 
-       	{generateCode(" END_WHILE_"+(whileCount)+" ;", 0);}
-  	OPEN_C (statement)* CLOSE_C	
-  	       	{generateCode("END_WHILE_"+(whileCount)+":", 0);}
+       	{		
+			++whileCount;
+			int local  = whileCount;				
+			System.out.println();			
+			generateCode("BEGIN_WHILE_"+(local)+":", 0);}
+			LOOP exp_comparison 
+			{
+				generateCode(" END_WHILE_"+(local)+" ;", 0);
+				System.out.println();
+				incrIdent(1);
+			}
+			OPEN_C (statement)* CLOSE_C	
+  	       	{
+				incrIdent(-1);
+				System.out.println();
+				generateCode("goto BEGIN_WHILE_"+(local)+" ;", 0);
+				generateCode("END_WHILE_"+(local)+":\n", 0);				
+				
+			}
   ;
   
      
@@ -180,25 +216,15 @@ tokens
   exp_comparison
   :   exp_arithmetic ( op = ( GT | GE | LT | LE | EQ | NE ) )  exp_arithmetic 
               { 
-              String val = null;
-	              	if($op.type == GT) {
-		         val = "if_icmpgt";                  	
-			} else if($op.type == GE) {
-					         val = "if_icmpge";
-          	
-			} else if($op.type == LT) {
-								         val = "if_icmplt";
-      	
-			} else if($op.type == LE) {
-								         val = "if_icmple";
+				String val = null;
 
-			} else if($op.type == EQ) {
-								         val = "if_icmpeq";
-
-			} else if($op.type == NE) {
-								         val = "if_icmpne";
-
-		        }
+				if($op.type == EQ) val = "if_icmpne";
+				if($op.type == NE) val = "if_icmpeq";
+				if($op.type == GT) val = "if_icmple"; 
+				if($op.type == GE) val = "if_icmplt";
+				if($op.type == LT) val = "if_icmpge";
+				if($op.type == LE) val = "if_icmpgt";				
+				
 		        generateCode(val, -2, false); 
               }
     ;
