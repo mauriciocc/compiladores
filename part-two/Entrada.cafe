@@ -1,6 +1,15 @@
-a = 1
-while a < 10
+a = 2
+if a < 3
 {
-    print a
-    a = a + 1
+    a = 4
 }
+else
+{
+    a = 5
+}
+
+if a <= 4 {
+ print a
+}
+print a
+

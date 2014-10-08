@@ -14,6 +14,8 @@ tokens
   PRINT = 'print';
   READ = 'read';
   LOOP = 'while';
+  IF_COND = 'if';
+  ELSE_COND = 'else';
   ATTRIB = '=';
   OPEN_C = '{'; 
   CLOSE_C = '}';
@@ -43,6 +45,7 @@ tokens
   private static int currentStack = 0;
   private static int maxStack = 0;
   private static int whileCount = 0;
+  private static int ifCount = 0;
   private static int identationLevel = 1;
   
   public static void main(String[] args) throws Exception
@@ -89,13 +92,13 @@ tokens
     }  
     
     private static void generateCode(String code, int val, boolean newLine) {         
-	code = ident(code);
-    if(newLine) {
-      System.out.println(code);
-      } else {
-      System.out.print(code);
-      }
-      incrementStack(val);      
+		code = ident(code);
+		if(newLine) {
+			System.out.println(code);
+		} else {
+			System.out.print(code);
+		}
+		  incrementStack(val);      
     }
   
   
@@ -146,16 +149,17 @@ tokens
     ;
   
   statement
-  : print | attribuition | read | loop
+  : print | attribuition | read | loop | if_cond
   ;  
   
   loop
   : 
-       	{		
-			++whileCount;
+       	{				
+			whileCount++;
 			int local  = whileCount;				
 			System.out.println();			
-			generateCode("BEGIN_WHILE_"+(local)+":", 0);}
+			generateCode("BEGIN_WHILE_"+(local)+":", 0);
+		}
 			LOOP exp_comparison 
 			{
 				generateCode(" END_WHILE_"+(local)+" ;", 0);
@@ -172,6 +176,54 @@ tokens
 			}
   ;
   
+  if_cond
+  : 
+       	{				
+			ifCount++;
+			int local  = ifCount;										
+			boolean elsePresent = false;			
+			System.out.println();
+		}
+		
+		IF_COND exp_comparison 
+			{				
+				generateCode(" NOT_IF_"+(local)+" ;", 0);
+				System.out.println();
+				incrIdent(1);
+			}			
+			OPEN_C (statement)* CLOSE_C		
+				
+			(else_cond {elsePresent = true;})? 
+			
+			{
+				if(!elsePresent) {					  	       				  	       				
+					incrIdent(-1);
+					System.out.println();
+					generateCode("NOT_IF_"+(local)+":", 0);		
+					System.out.println();				
+				}		
+				
+			}
+			
+  ;
+  
+  else_cond
+  : ELSE_COND 
+	OPEN_C 
+	{
+		incrIdent(-1);
+		System.out.println();
+		generateCode("goto END_ELSE_"+(ifCount)+" ;", 0);
+					System.out.println();
+					generateCode("NOT_IF_"+(ifCount)+":", 0);		
+					System.out.println();				}
+	(statement)* CLOSE_C	
+	{ 
+		System.out.println();
+		generateCode("END_ELSE_"+(ifCount)+":", 0); 
+		System.out.println();
+	}
+  ;
      
   read
   	:	READ VARIABLE
