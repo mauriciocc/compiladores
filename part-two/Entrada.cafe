@@ -1,15 +1,1 @@
-a = 2
-if a < 3
-{
-    a = 4
-}
-else
-{
-    a = 5
-}
-
-if a <= 4 {
- print a
-}
-print a
-
+print "hukhuk" "lala" "rere" 15 20 35 80 90

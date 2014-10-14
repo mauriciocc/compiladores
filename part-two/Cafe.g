@@ -140,6 +140,7 @@ tokens
   SPACE   : (' '|'\t'|'\r'|'\n')+ { skip(); } ;
   VARIABLE: 'a'..'z'+;
   COMMENT : '//' ~('\r'|'\n')* { skip(); } ;
+  STRING  : '"' ~('"')* '"' ;
   
   
   /*---------------- PARSER RULES ----------------*/
@@ -245,9 +246,28 @@ tokens
      	
   print
   : 
-  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
-  PRINT exp_arithmetic
-  { generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2); }
+  
+  PRINT 
+  (
+	  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
+	  (
+		  STRING
+		  {
+			generateCode("ldc "+ $STRING.text, 1);
+			generateCode("invokevirtual  java/io/PrintStream/print(Ljava/lang/String;)V", -2);
+		  }
+		  | exp_arithmetic 
+		  { 
+			generateCode("invokevirtual  java/io/PrintStream/print(I)V", -2);
+		  }
+	  )
+	  {System.out.println();}
+  )+
+  
+  {	
+	generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1);
+	generateCode("invokevirtual  java/io/PrintStream/println()V", 1);
+  }
   ;
   
   attribuition
