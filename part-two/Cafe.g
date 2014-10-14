@@ -193,36 +193,39 @@ tokens
 			}			
 			OPEN_C (statement)* CLOSE_C		
 				
-			(else_cond {elsePresent = true;})? 
+			{
+				incrIdent(-1);
+			}
+			
+			(ELSE_COND OPEN_C 			
+			{
+				System.out.println();
+				generateCode("goto END_ELSE_"+(local)+" ;", 0);
+				System.out.println();
+				generateCode("NOT_IF_"+(local)+":", 0);		
+				System.out.println();
+			}
+			(statement)* 
+			
+			{				
+					
+					System.out.println();				
+					System.out.println();
+					generateCode("END_ELSE_"+(local)+":", 0); 
+					System.out.println();						
+			}
+			
+			CLOSE_C {elsePresent = true;})? 
 			
 			{
-				if(!elsePresent) {					  	       				  	       				
-					incrIdent(-1);
+				
+				if(!elsePresent) {					
 					System.out.println();
 					generateCode("NOT_IF_"+(local)+":", 0);		
 					System.out.println();				
-				}		
-				
+				}
 			}
 			
-  ;
-  
-  else_cond
-  : ELSE_COND 
-	OPEN_C 
-	{
-		incrIdent(-1);
-		System.out.println();
-		generateCode("goto END_ELSE_"+(ifCount)+" ;", 0);
-					System.out.println();
-					generateCode("NOT_IF_"+(ifCount)+":", 0);		
-					System.out.println();				}
-	(statement)* CLOSE_C	
-	{ 
-		System.out.println();
-		generateCode("END_ELSE_"+(ifCount)+":", 0); 
-		System.out.println();
-	}
   ;
      
   read
