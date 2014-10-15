@@ -40,7 +40,9 @@ tokens
 
 @members
 {
+	
   private static List<String> symbol_table;
+  private static List<Character> symbol_type;
   private static Map<String, Integer> symbolAccess;
   private static int currentStack = 0;
   private static int maxStack = 0;
@@ -56,8 +58,10 @@ tokens
     CafeParser parser = new CafeParser(tokens);
     
     symbol_table = new ArrayList<String>();  
+	symbol_type = new ArrayList<Character>();  
     symbolAccess = new HashMap<String, Integer>();
     symbol_table.add("args");   
+	symbol_type.add('s');
     
     System.out.println(".source Teste.j");
     System.out.println(".class  public Teste");
@@ -250,19 +254,19 @@ tokens
   PRINT 
   (
 	  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
-	  (
-		  STRING
-		  {
-			generateCode("ldc "+ $STRING.text, 1);
-			generateCode("invokevirtual  java/io/PrintStream/print(Ljava/lang/String;)V", -2);
-		  }
-		  | exp_arithmetic 
+	  (		  
+		  type = expression 
 		  { 
+			if(type == 'i'){
 			generateCode("invokevirtual  java/io/PrintStream/print(I)V", -2);
+			} else {
+			generateCode("invokevirtual  java/io/PrintStream/print(Ljava/lang/String;)V", -2);			
+			}
+			
 		  }
 	  )
 	  {System.out.println();}
-  )+
+  )*
   
   {	
 	generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1);
@@ -271,25 +275,30 @@ tokens
   ;
   
   attribuition
-  : VARIABLE ATTRIB exp_arithmetic 
-  {
-    if(symbol_table.contains($VARIABLE.text)) {
-      generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), -1);
-    } else {
-      symbol_table.add($VARIABLE.text); 
-      generateCode("istore " + (symbol_table.size()-1), -1);
-    }
-  } 
+  : VARIABLE ATTRIB (
+	  type = expression 
+	  {
+		String store = type == 'i' ? "istore " : "astore ";
+		if(symbol_table.contains($VARIABLE.text)) {
+		  generateCode(store + (symbol_table.indexOf($VARIABLE.text)), -1);
+		} else {
+		  symbol_table.add($VARIABLE.text); 
+		  symbol_type.add(type); 
+		  generateCode(store + (symbol_table.size()-1), -1);
+		}
+	  }	
+	)
   ;
     
-  exp_arithmetic
-  :   term ( op = ( PLUS | MINUS ) term 
+  expression returns [char type]
+  :   t1 = term ( op = ( PLUS | MINUS ) t2 = term 
               { generateCode($op.type == PLUS ? "iadd" : "isub", -1);}
   )*
+  {$type = $t1.type;}
     ;
     
   exp_comparison
-  :   exp_arithmetic ( op = ( GT | GE | LT | LE | EQ | NE ) )  exp_arithmetic 
+  :   expression ( op = ( GT | GE | LT | LE | EQ | NE ) )  expression 
               { 
 				String val = null;
 
@@ -304,22 +313,34 @@ tokens
               }
     ;
   
-  term    
-  :   factor ( op = ( TIMES | OVER | REMAINDER ) factor 
+  term returns [char type]   
+  :   f1 = factor ( op = ( TIMES | OVER | REMAINDER ) f2 = factor 
                 { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -1);} 
   )*
-    
-    ;    
+  {$type = $f1.type;}    
+  ;
   
-  factor
+  factor returns [char type]
   :   
     NUM
-    { generateCode("ldc " + $NUM.text, 1);}
-    | OPEN_P exp_arithmetic CLOSE_P
-    | VARIABLE
+    { 
+		generateCode("ldc " + $NUM.text, 1);
+		$type = 'i';
+	}
+	| STRING
+    { 
+		generateCode("ldc " + $STRING.text, 1);
+		$type = 's';
+	}
+    | OPEN_P ex = expression CLOSE_P
+	{	$type = $ex.type; }
+    | VARIABLE 
     { 
       if(symbol_table.contains($VARIABLE.text)) {
-        generateCode("iload " + (symbol_table.indexOf($VARIABLE.text)), 1);
+		int idx = symbol_table.indexOf($VARIABLE.text);
+		$type = symbol_type.get(idx);
+		String load = ($type == 'i' ? "iload " : "aload ");
+        generateCode(load + idx, 1);
         registerVarAccess($VARIABLE.text);
       } else {
         throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");

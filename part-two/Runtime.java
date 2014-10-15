@@ -1,4 +1,4 @@
-/* Classe que implementa o metodo de runtime para a linguagem Mini
+/* Classe que implementa o metodo de runtime para a linguagem Cafe
  */
 
 import java.io.*; 
@@ -30,6 +30,29 @@ public class Runtime
         catch (NumberFormatException e)
         {
             System.err.println("Invalid integer format");
+        }
+        return (n);
+    }
+
+    // Metodo para retornar uma string
+    public static String readString()
+    {
+        if (in == null)
+        {
+            in = new BufferedReader(new InputStreamReader(System.in)); 
+        }
+        String n = "";
+        try
+        {
+            String s = in.readLine();
+            if (s != null)
+            {
+                n = s;
+            }
+        }
+        catch (IOException e)
+        {
+            System.err.println("Error reading standard input: " + e.getMessage());
         }
         return (n);
     }

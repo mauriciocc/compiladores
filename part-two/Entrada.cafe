@@ -1,1 +1,5 @@
+a = 50
+b = "cacaca"
 print "hukhuk" "lala" "rere" 15 20 35 80 90
+print a
+print b
