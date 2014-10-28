@@ -1,0 +1,29 @@
+a = 1
+x = "X"
+b = 2
+y = "Y"
+
+a = 3
+b = a
+a = "Z" // error
+b = x   // error
+
+x = "Q"
+y = x
+x = 4 // error
+y = b // error
+
+print "abc" 123
+print 456 ("xyz")
+print a + x   // error
+print b - y   // error
+print x * "W" // error
+print y / x   // error
+print 8 % (x) // error
+
+while a > x { } // error
+
+if y == 2 { } // error
+
+if y != "M" { } // error
+

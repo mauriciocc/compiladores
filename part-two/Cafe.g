@@ -43,6 +43,7 @@ tokens
 	
   private static List<String> symbol_table;
   private static List<Character> symbol_type;
+  private static List<Exception> compilerExceptions;
   private static Map<String, Integer> symbolAccess;
   private static int currentStack = 0;
   private static int maxStack = 0;
@@ -59,6 +60,7 @@ tokens
     
     symbol_table = new ArrayList<String>();  
 	symbol_type = new ArrayList<Character>();  
+	compilerExceptions = new ArrayList<Exception>();  
     symbolAccess = new HashMap<String, Integer>();
     symbol_table.add("args");   
 	symbol_type.add('s');
@@ -88,6 +90,16 @@ tokens
         System.err.println("WARNING: variable '"+ variable + "' is declared but never used");
       }
     }
+	
+	for(Exception e : compilerExceptions) {
+		System.err.println(e.getMessage());
+	}
+	
+	if(!compilerExceptions.isEmpty()) {
+		throw new IllegalArgumentException("Compiler found some errors on your code :(");
+	}
+	
+	
   }
 
 
@@ -278,9 +290,14 @@ tokens
   : VARIABLE ATTRIB (
 	  type = expression 
 	  {
-		String store = type == 'i' ? "istore " : "astore ";
+		String store = type == 'i' ? "istore " : "astore ";		
 		if(symbol_table.contains($VARIABLE.text)) {
-		  generateCode(store + (symbol_table.indexOf($VARIABLE.text)), -1);
+		Character symbolType = symbol_type.get(symbol_table.indexOf($VARIABLE.text));
+			if(symbolType.equals(type)) {
+				generateCode(store + (symbol_table.indexOf($VARIABLE.text)), -1);
+			} else {
+				compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE TYPE MISMATCH:  trying to set an '"+type+"' value on variable '"+$VARIABLE.text+"' of type '"+symbolType+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+			}
 		} else {
 		  symbol_table.add($VARIABLE.text); 
 		  symbol_type.add(type); 
@@ -292,7 +309,13 @@ tokens
     
   expression returns [char type]
   :   t1 = term ( op = ( PLUS | MINUS ) t2 = term 
-              { generateCode($op.type == PLUS ? "iadd" : "isub", -1);}
+              { 			  
+				if($t1.type == 'i' && $t2.type == 'i') {
+					generateCode($op.type == PLUS ? "iadd" : "isub", -1);
+				} else {
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] ARITHMETIC EXPRESSION WITH STRINGS:  "+$t1.type+" "+$op.text+" "+$t2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
+				}
+			  }
   )*
   {$type = $t1.type;}
     ;
@@ -315,7 +338,13 @@ tokens
   
   term returns [char type]   
   :   f1 = factor ( op = ( TIMES | OVER | REMAINDER ) f2 = factor 
-                { generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -1);} 
+                { 
+				if($f1.type == 'i' && $f2.type == 'i') {
+				generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -1);
+				} else {
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] ARITHMETIC EXPRESSION WITH STRINGS:  "+$f1.type+" "+$op.text+" "+$f2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
+				}
+				} 
   )*
   {$type = $f1.type;}    
   ;
