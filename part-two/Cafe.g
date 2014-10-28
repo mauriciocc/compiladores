@@ -91,13 +91,22 @@ tokens
       }
     }
 	
+	System.err.println();
+	System.err.println();
+	System.err.println("------------------------ COMPILER ERROR REPORT --------------------------------");
+	System.err.println();
 	for(Exception e : compilerExceptions) {
 		System.err.println(e.getMessage());
 	}
+	System.err.println();
+		System.err.println("-------------------------------------------------------------------------------");
+	System.err.println();
+	System.err.println();
 	
 	if(!compilerExceptions.isEmpty()) {
 		throw new IllegalArgumentException("Compiler found some errors on your code :(");
 	}
+
 	
 	
   }
@@ -321,8 +330,9 @@ tokens
     ;
     
   exp_comparison
-  :   expression ( op = ( GT | GE | LT | LE | EQ | NE ) )  expression 
+  :   e1 = expression ( op = ( GT | GE | LT | LE | EQ | NE ) )  e2 = expression 
               { 
+			  if($e1.type == 'i' && $e2.type == 'i') {
 				String val = null;
 
 				if($op.type == EQ) val = "if_icmpne";
@@ -333,6 +343,9 @@ tokens
 				if($op.type == LE) val = "if_icmpgt";				
 				
 		        generateCode(val, -2, false); 
+				} else {
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] LOGICAL EXPRESSION WITH STRINGS:  "+$e1.type+" "+$op.text+" "+$e2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
+				}
               }
     ;
   
