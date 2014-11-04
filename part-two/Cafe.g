@@ -12,7 +12,9 @@ tokens
   OPEN_P = '(';
   CLOSE_P = ')'; 
   PRINT = 'print';
-  READ = 'read';
+  READ = 'read'; //REMOVER
+  READ_INT = 'read_int';
+  READ_STR = 'read_str';
   LOOP = 'while';
   IF_COND = 'if';
   ELSE_COND = 'else';
@@ -25,7 +27,10 @@ tokens
   LE = '<=';
   EQ = '==';
   NE = '!=';
-  
+  OPEN_B = '[';
+  CLOSE_B = ']';
+  HASHTAG = '#';  
+  ARRAY = 'array';
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
@@ -40,6 +45,10 @@ tokens
 
 @members
 {
+	
+	public static final Character INTEGER_TYPE = 'i';
+	public static final Character STRING_TYPE = 's';
+	public static final Character ARRAY_TYPE = 'a';
 	
   private static List<String> symbol_table;
   private static List<Character> symbol_type;
@@ -91,19 +100,18 @@ tokens
       }
     }
 	
-	System.err.println();
-	System.err.println();
-	System.err.println("------------------------ COMPILER ERROR REPORT --------------------------------");
-	System.err.println();
-	for(Exception e : compilerExceptions) {
-		System.err.println(e.getMessage());
-	}
-	System.err.println();
-		System.err.println("-------------------------------------------------------------------------------");
-	System.err.println();
-	System.err.println();
-	
 	if(!compilerExceptions.isEmpty()) {
+		System.err.println();
+		System.err.println();
+		System.err.println("------------------------ COMPILER ERROR REPORT --------------------------------");
+		System.err.println();
+		for(Exception e : compilerExceptions) {
+			System.err.println(e.getMessage());
+		}
+		System.err.println();
+		System.err.println("-------------------------------------------------------------------------------");
+		System.err.println();
+		System.err.println();
 		throw new IllegalArgumentException("Compiler found some errors on your code :(");
 	}
 
@@ -175,7 +183,7 @@ tokens
     ;
   
   statement
-  : print | attribuition | read | loop | if_cond
+  : print | attribuition | loop | if_cond
   ;  
   
   loop
@@ -253,27 +261,27 @@ tokens
 			}
 			
   ;
-     
-  read
-  	:	READ VARIABLE
-     	{
-     		generateCode("invokestatic Runtime/readInt()I ;", 1);  
-		if(symbol_table.contains($VARIABLE.text)) {
-			generateCode("istore " + (symbol_table.indexOf($VARIABLE.text)), -1);
-		} else {
-			throw new IllegalStateException("Error: Trying to put read value on an undefined variable '"+$VARIABLE.text+"' on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");
-		}
-	} 
-     	;
-     	
-
-     	
      	
   print
-  : 
-  
-  PRINT 
-  (
+  :
+  PRINT 	  
+  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
+	  (		  
+		  type = expression 
+		  { 
+			if(type == 'i'){
+			generateCode("invokevirtual  java/io/PrintStream/print(I)V", -2);
+			} else {
+			generateCode("invokevirtual  java/io/PrintStream/print(Ljava/lang/String;)V", -2);			
+			}
+			
+		  }
+	  )
+	{
+	  System.out.println();
+	  }
+	  
+  /*(
 	  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
 	  (		  
 		  type = expression 
@@ -287,23 +295,42 @@ tokens
 		  }
 	  )
 	  {System.out.println();}
-  )*
+  )**/
   
-  {	
-	generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1);
-	generateCode("invokevirtual  java/io/PrintStream/println()V", 1);
-  }
   ;
   
   attribuition
-  : VARIABLE ATTRIB (
+  : 
+  {
+	boolean isVarArray = false;
+	boolean isAttribArray = false;
+  }
+  VARIABLE 
+  (
+	{ 
+		isVarArray = true;
+		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
+	}
+	OPEN_B expression CLOSE_B 
+  )? 
+  ATTRIB 
+  (ARRAY 
+	{
+		isAttribArray = true;		
+	}
+  )? (
 	  type = expression 
 	  {
-		String store = type == 'i' ? "istore " : "astore ";		
+		if(isAttribArray){
+			generateCode("newarray int", 0);
+		} 
+		
+		String store = !isAttribArray && type == INTEGER_TYPE ? "istore " : "astore ";	
+		store = isVarArray ? "iastore" : store;
 		if(symbol_table.contains($VARIABLE.text)) {
-		Character symbolType = symbol_type.get(symbol_table.indexOf($VARIABLE.text));
+			Character symbolType = symbol_type.get(symbol_table.indexOf($VARIABLE.text));
 			if(symbolType.equals(type)) {
-				generateCode(store + (symbol_table.indexOf($VARIABLE.text)), -1);
+				generateCode(store + (isVarArray ? "" : symbol_table.indexOf($VARIABLE.text)), isVarArray ? -2 : -1);
 			} else {
 				compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE TYPE MISMATCH:  trying to set an '"+type+"' value on variable '"+$VARIABLE.text+"' of type '"+symbolType+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
 			}
@@ -312,14 +339,16 @@ tokens
 		  symbol_type.add(type); 
 		  generateCode(store + (symbol_table.size()-1), -1);
 		}
-	  }	
+		
+		System.out.println();		
+	  }
 	)
   ;
     
   expression returns [char type]
   :   t1 = term ( op = ( PLUS | MINUS ) t2 = term 
               { 			  
-				if($t1.type == 'i' && $t2.type == 'i') {
+				if($t1.type == INTEGER_TYPE && $t2.type == INTEGER_TYPE) {
 					generateCode($op.type == PLUS ? "iadd" : "isub", -1);
 				} else {
 					compilerExceptions.add(new IllegalArgumentException("[ERROR] ARITHMETIC EXPRESSION WITH STRINGS:  "+$t1.type+" "+$op.text+" "+$t2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
@@ -332,7 +361,7 @@ tokens
   exp_comparison
   :   e1 = expression ( op = ( GT | GE | LT | LE | EQ | NE ) )  e2 = expression 
               { 
-			  if($e1.type == 'i' && $e2.type == 'i') {
+			  if($e1.type == INTEGER_TYPE && $e2.type == INTEGER_TYPE) {
 				String val = null;
 
 				if($op.type == EQ) val = "if_icmpne";
@@ -352,7 +381,7 @@ tokens
   term returns [char type]   
   :   f1 = factor ( op = ( TIMES | OVER | REMAINDER ) f2 = factor 
                 { 
-				if($f1.type == 'i' && $f2.type == 'i') {
+				if($f1.type == INTEGER_TYPE && $f2.type == INTEGER_TYPE) {
 				generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -1);
 				} else {
 					compilerExceptions.add(new IllegalArgumentException("[ERROR] ARITHMETIC EXPRESSION WITH STRINGS:  "+$f1.type+" "+$op.text+" "+$f2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
@@ -367,26 +396,48 @@ tokens
     NUM
     { 
 		generateCode("ldc " + $NUM.text, 1);
-		$type = 'i';
+		$type = INTEGER_TYPE;
 	}
 	| STRING
     { 
 		generateCode("ldc " + $STRING.text, 1);
-		$type = 's';
+		$type = STRING_TYPE;
 	}
     | OPEN_P ex = expression CLOSE_P
 	{	$type = $ex.type; }
-    | VARIABLE 
+    | 
+	{ 
+		boolean isArray = false;
+	}
+	VARIABLE 
+	(	
+		{
+			isArray = true;
+			generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
+		}
+		OPEN_B expression CLOSE_B
+	)
     { 
       if(symbol_table.contains($VARIABLE.text)) {
 		int idx = symbol_table.indexOf($VARIABLE.text);
 		$type = symbol_type.get(idx);
-		String load = ($type == 'i' ? "iload " : "aload ");
-        generateCode(load + idx, 1);
+		String load = $type == 'i' ? "iload " : "aload ";
+		load = isArray ? "iaload" : load;
+        generateCode(load + (isArray ? "" : idx), 1);
         registerVarAccess($VARIABLE.text);
       } else {
         throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");
       }
     }
+	| READ_INT
+    {
+		generateCode("invokestatic Runtime/readInt()I ;", 1);
+		$type = INTEGER_TYPE;
+	}
+	| READ_STR
+    {
+		generateCode("invokestatic Runtime/readString()Ljava/lang/String;", 1);
+		$type = STRING_TYPE;
+	}
     ;
   

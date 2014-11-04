@@ -1,6 +1,5 @@
-a = 50
-b = "cacaca"
-cedilha = b + a
-print "hukhuk" "lala" "rere" 15 20 35 80 90
-print a
-print b
+v = array 10
+v[0] = 123
+print v[0]
+//print #v
+
