@@ -29,7 +29,7 @@ tokens
   NE = '!=';
   OPEN_B = '[';
   CLOSE_B = ']';
-  HASHTAG = '#';  
+  HASH_TAG = '#';  
   ARRAY = 'array';
 }
 
@@ -270,9 +270,9 @@ tokens
 		  type = expression 
 		  { 
 			if(type == 'i'){
-			generateCode("invokevirtual  java/io/PrintStream/print(I)V", -2);
+			generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2);
 			} else {
-			generateCode("invokevirtual  java/io/PrintStream/print(Ljava/lang/String;)V", -2);			
+			generateCode("invokevirtual  java/io/PrintStream/println(Ljava/lang/String;)V", -2);			
 			}
 			
 		  }
@@ -408,7 +408,14 @@ tokens
     | 
 	{ 
 		boolean isArray = false;
+		boolean isArrayLength = false;
 	}
+	(
+		HASH_TAG 
+		{
+			isArrayLength = true;
+		}
+	)?
 	VARIABLE 
 	(	
 		{
@@ -416,8 +423,13 @@ tokens
 			generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
 		}
 		OPEN_B expression CLOSE_B
-	)
+	)?
     { 
+	if(isArrayLength) {
+		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
+		generateCode("arraylength", 1);
+		$type = INTEGER_TYPE;
+	} else {
       if(symbol_table.contains($VARIABLE.text)) {
 		int idx = symbol_table.indexOf($VARIABLE.text);
 		$type = symbol_type.get(idx);
@@ -428,6 +440,7 @@ tokens
       } else {
         throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");
       }
+	  }
     }
 	| READ_INT
     {
