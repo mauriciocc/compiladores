@@ -279,24 +279,7 @@ tokens
 	  )
 	{
 	  System.out.println();
-	  }
-	  
-  /*(
-	  { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
-	  (		  
-		  type = expression 
-		  { 
-			if(type == 'i'){
-			generateCode("invokevirtual  java/io/PrintStream/print(I)V", -2);
-			} else {
-			generateCode("invokevirtual  java/io/PrintStream/print(Ljava/lang/String;)V", -2);			
-			}
-			
-		  }
-	  )
-	  {System.out.println();}
-  )**/
-  
+	  }  
   ;
   
   attribuition
@@ -330,7 +313,7 @@ tokens
 		if(symbol_table.contains($VARIABLE.text)) {
 			Character symbolType = symbol_type.get(symbol_table.indexOf($VARIABLE.text));
 			if(symbolType.equals(type)) {
-				generateCode(store + (isVarArray ? "" : symbol_table.indexOf($VARIABLE.text)), isVarArray ? -2 : -1);
+				generateCode(store + (isVarArray ? "" : symbol_table.indexOf($VARIABLE.text)), isVarArray ? -3 : -1);
 			} else {
 				compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE TYPE MISMATCH:  trying to set an '"+type+"' value on variable '"+$VARIABLE.text+"' of type '"+symbolType+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
 			}
@@ -427,7 +410,7 @@ tokens
     { 
 	if(isArrayLength) {
 		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
-		generateCode("arraylength", 1);
+		generateCode("arraylength", -1);
 		$type = INTEGER_TYPE;
 	} else {
       if(symbol_table.contains($VARIABLE.text)) {
@@ -435,7 +418,7 @@ tokens
 		$type = symbol_type.get(idx);
 		String load = $type == 'i' ? "iload " : "aload ";
 		load = isArray ? "iaload" : load;
-        generateCode(load + (isArray ? "" : idx), 1);
+        generateCode(load + (isArray ? "" : idx), isArray ? 0 : 1);
         registerVarAccess($VARIABLE.text);
       } else {
         throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");

@@ -1,5 +1,8 @@
 v = array 10
+c = array 10
+d = array 10
 v[0] = 123
 print v[0]
 print #v
-
+print #c
+print #d
