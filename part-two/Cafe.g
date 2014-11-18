@@ -410,7 +410,7 @@ tokens
     { 
 	if(isArrayLength) {
 		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
-		generateCode("arraylength", -1);
+		generateCode("arraylength", 0);
 		$type = INTEGER_TYPE;
 	} else {
       if(symbol_table.contains($VARIABLE.text)) {
