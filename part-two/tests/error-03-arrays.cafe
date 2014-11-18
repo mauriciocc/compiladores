@@ -1,0 +1,33 @@
+// errors for array variables
+
+v = array 100
+i = 2
+s = ""
+
+v = array 10  // ok!
+i = array 10  // error
+z = array s   // error
+
+v = 2         // error
+v[s] = 2      // error
+v[0] = s      // error
+i[0] = 2      // error
+s[0] = 2      // error
+x[0] = 2      // error
+
+i = v         // error
+i = i[0]      // error
+i = s[0]      // error
+i = x[0]      // error
+
+i = #i        // error
+i = #s        // error
+i = #x        // error
+
+print v       // error
+
+while v > 2 { } // error
+
+if 2 <= v { }   // error
+
+if v == v { }   // error

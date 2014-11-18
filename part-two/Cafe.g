@@ -94,6 +94,11 @@ tokens
     System.out.println(".end method");
     
     symbol_table.remove(0); //Retira args
+    symbol_type.remove(0);
+
+	System.err.println("SYMBOL TABLE: " + symbol_table);
+	System.err.println("SYMBOL TYPE: " + symbol_type);
+
     for(String variable : symbol_table) {
       if(!symbolAccess.containsKey(variable)) {
         System.err.println("WARNING: variable '"+ variable + "' is declared but never used");
@@ -269,12 +274,17 @@ tokens
 	  (		  
 		  type = expression 
 		  { 
-			if(type == 'i'){
-			generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2);
-			} else {
-			generateCode("invokevirtual  java/io/PrintStream/println(Ljava/lang/String;)V", -2);			
+		  	if(type == ARRAY_TYPE) {
+		  		compilerExceptions.add(
+					new IllegalStateException("[ERROR] PRINT OF ARRAY NOT IMPLEMENTED YET. POSITION [" + $PRINT.line+ ","+$PRINT.getCharPositionInLine()+"]")
+				);	
+		  	} else {
+				if(type == INTEGER_TYPE){
+					generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2);
+				} else {
+					generateCode("invokevirtual  java/io/PrintStream/println(Ljava/lang/String;)V", -2);			
+				}
 			}
-			
 		  }
 	  )
 	{
@@ -285,6 +295,7 @@ tokens
   attribuition
   : 
   {
+  	boolean gotError = false;
 	boolean isVarArray = false;
 	boolean isAttribArray = false;
   }
@@ -292,9 +303,30 @@ tokens
   (
 	{ 
 		isVarArray = true;
-		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
+		if(symbol_table.contains($VARIABLE.text)) {				
+			if(symbol_type.get(symbol_table.indexOf($VARIABLE.text)) == ARRAY_TYPE) {
+				generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);				
+			} else {
+				compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE '" + $VARIABLE.text + "'' IS NOT AN ARRAY: variable you trying to access is of type '"+symbol_type.get(symbol_table.indexOf($VARIABLE.text))+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+				gotError = true;
+			}
+		} else {
+			compilerExceptions.add(
+				new IllegalStateException("[ERROR] TRYING TO ACCESS UNDEFINED VARIABLE '"+$VARIABLE.text+"' ON POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
+				);			
+			gotError = true;
+		}
+
 	}
-	OPEN_B expression CLOSE_B 
+	OPEN_B 
+		type = expression 
+	CLOSE_B 
+	{
+		if(type != INTEGER_TYPE) {
+			compilerExceptions.add(new IllegalArgumentException("[ERROR] INVALID ARRAY ACCESS:  trying to access array with value of type '"+type+"' (must be an integer). Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+			gotError = true;
+		}
+	}
   )? 
   ATTRIB 
   (ARRAY 
@@ -304,23 +336,38 @@ tokens
   )? (
 	  type = expression 
 	  {
-		if(isAttribArray){
-			generateCode("newarray int", 0);
+		if(isAttribArray) {
+			if(type == STRING_TYPE) {
+				compilerExceptions.add(new IllegalArgumentException("[ERROR] INVALID NEW ARRAY DECLARATION:  trying to create array with invalid size of type '"+type+"' (must be an integer). Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+				gotError = true;
+			} else {
+				generateCode("newarray int", 0);
+				type = ARRAY_TYPE;
+			}
 		} 
 		
 		String store = !isAttribArray && type == INTEGER_TYPE ? "istore " : "astore ";	
 		store = isVarArray ? "iastore" : store;
+
 		if(symbol_table.contains($VARIABLE.text)) {
 			Character symbolType = symbol_type.get(symbol_table.indexOf($VARIABLE.text));
-			if(symbolType.equals(type)) {
-				generateCode(store + (isVarArray ? "" : symbol_table.indexOf($VARIABLE.text)), isVarArray ? -3 : -1);
+			if(symbolType.equals(type) || isVarArray) {
+				if(type == STRING_TYPE) {
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] TYPE NOT SUPPORTED BY ARRAY:  trying to set an '"+type+"' value on variable '"+$VARIABLE.text+"' of type '"+symbolType+"', currently this is not supported. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+					gotError = true;
+				} else {
+					generateCode(store + (isVarArray ? "" : symbol_table.indexOf($VARIABLE.text)), isVarArray ? -3 : -1);
+				}
 			} else {
 				compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE TYPE MISMATCH:  trying to set an '"+type+"' value on variable '"+$VARIABLE.text+"' of type '"+symbolType+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+				gotError = true;
 			}
 		} else {
+			if(!gotError) {
 		  symbol_table.add($VARIABLE.text); 
 		  symbol_type.add(type); 
 		  generateCode(store + (symbol_table.size()-1), -1);
+		  }
 		}
 		
 		System.out.println();		
@@ -356,7 +403,7 @@ tokens
 				
 		        generateCode(val, -2, false); 
 				} else {
-					compilerExceptions.add(new IllegalArgumentException("[ERROR] LOGICAL EXPRESSION WITH STRINGS:  "+$e1.type+" "+$op.text+" "+$e2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] LOGICAL EXPRESSION WITH UNSUPORTED TYPES:  "+$e1.type+" "+$op.text+" "+$e2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
 				}
               }
     ;
@@ -367,7 +414,7 @@ tokens
 				if($f1.type == INTEGER_TYPE && $f2.type == INTEGER_TYPE) {
 				generateCode($op.type == TIMES ? "imul" : $op.type == OVER ? "idiv" : "irem", -1);
 				} else {
-					compilerExceptions.add(new IllegalArgumentException("[ERROR] ARITHMETIC EXPRESSION WITH STRINGS:  "+$f1.type+" "+$op.text+" "+$f2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] ARITHMETIC EXPRESSION WITH UNSUPORTED TYPES:  "+$f1.type+" "+$op.text+" "+$f2.type + " on Position ["+$op.line+","+$op.getCharPositionInLine()+"]"));
 				}
 				} 
   )*
@@ -402,26 +449,50 @@ tokens
 	VARIABLE 
 	(	
 		{
-			isArray = true;
-			generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
+			isArray = true;		
+
+			if(symbol_table.contains($VARIABLE.text)) {				
+				if(symbol_type.get(symbol_table.indexOf($VARIABLE.text)) == ARRAY_TYPE) {
+					generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);				
+				} else {
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE '" + $VARIABLE.text + "'' IS NOT AN ARRAY: variable you trying to access is of type '"+symbol_type.get(symbol_table.indexOf($VARIABLE.text))+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+				}
+			} else {
+				compilerExceptions.add(
+					new IllegalStateException("[ERROR] TRYING TO ACCESS UNDEFINED VARIABLE '"+$VARIABLE.text+"' ON POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
+					);			
+			}
+			
 		}
 		OPEN_B expression CLOSE_B
 	)?
     { 
+
+
 	if(isArrayLength) {
-		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
+			if(symbol_table.contains($VARIABLE.text)) {				
+				if(symbol_type.get(symbol_table.indexOf($VARIABLE.text)) == ARRAY_TYPE) {
+					generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);				
+				} else {
+					compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE '" + $VARIABLE.text + "'' IS NOT AN ARRAY: variable you trying to access is of type '"+symbol_type.get(symbol_table.indexOf($VARIABLE.text))+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
+				}
+			} else {
+				compilerExceptions.add(
+					new IllegalStateException("[ERROR] TRYING TO ACCESS UNDEFINED VARIABLE '"+$VARIABLE.text+"' ON POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
+					);			
+			}		
 		generateCode("arraylength", 0);
 		$type = INTEGER_TYPE;
 	} else {
       if(symbol_table.contains($VARIABLE.text)) {
 		int idx = symbol_table.indexOf($VARIABLE.text);
-		$type = symbol_type.get(idx);
-		String load = $type == 'i' ? "iload " : "aload ";
+		$type = isArray ? INTEGER_TYPE : symbol_type.get(idx);
+		String load = $type == INTEGER_TYPE ? "iload " : "aload ";
 		load = isArray ? "iaload" : load;
         generateCode(load + (isArray ? "" : idx), isArray ? 0 : 1);
         registerVarAccess($VARIABLE.text);
       } else {
-        throw new IllegalStateException("Variable '"+$VARIABLE.text+"' undefined on position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]");
+      	compilerExceptions.add(new IllegalStateException("[ERROR] TRYING TO ACCESS UNDEFINED VARIABLE '"+$VARIABLE.text+"' ON POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
       }
 	  }
     }
