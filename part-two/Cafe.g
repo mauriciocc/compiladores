@@ -4,43 +4,43 @@ grammar Cafe;
 
 tokens
 {
-	PLUS = '+';
-	MINUS = '-';
-	TIMES = '*';
-	OVER = '/';
-	REMAINDER = '%';
-	OPEN_P = '(';
-	CLOSE_P = ')'; 
-	PRINT = 'print';
-	READ = 'read'; //REMOVER
-	READ_INT = 'read_int';
-	READ_STR = 'read_str';
-	LOOP = 'while';
-	IF_COND = 'if';
-	ELSE_COND = 'else';
-	ATTRIB = '=';
-	OPEN_C = '{'; 
-	CLOSE_C = '}';
-	GT = '>';
-	GE = '>=';
-	LT = '<';
-	LE = '<=';
-	EQ = '==';
-	NE = '!=';
-	OPEN_B = '[';
-	CLOSE_B = ']';
-	HASH_TAG = '#';  
-	ARRAY = 'array';
+  PLUS = '+';
+  MINUS = '-';
+  TIMES = '*';
+  OVER = '/';
+  REMAINDER = '%';
+  OPEN_P = '(';
+  CLOSE_P = ')'; 
+  PRINT = 'print';
+  READ = 'read'; //REMOVER
+  READ_INT = 'read_int';
+  READ_STR = 'read_str';
+  LOOP = 'while';
+  IF_COND = 'if';
+  ELSE_COND = 'else';
+  ATTRIB = '=';
+  OPEN_C = '{'; 
+  CLOSE_C = '}';
+  GT = '>';
+  GE = '>=';
+  LT = '<';
+  LE = '<=';
+  EQ = '==';
+  NE = '!=';
+  OPEN_B = '[';
+  CLOSE_B = ']';
+  HASH_TAG = '#';  
+  ARRAY = 'array';
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
 
 @header
 {
-	import java.util.List;
-	import java.util.ArrayList;
-	import java.util.Map;
-	import java.util.HashMap;
+  import java.util.List;
+  import java.util.ArrayList;
+  import java.util.Map;
+  import java.util.HashMap;
 }
 
 @members
@@ -50,15 +50,15 @@ tokens
 	public static final Character STRING_TYPE = 's';
 	public static final Character ARRAY_TYPE = 'a';
 	
-  	private static List<String> symbol_table;
-  	private static List<Character> symbol_type;
-  	private static List<Exception> compilerExceptions;
-	private static Map<String, Integer> symbolAccess;
-	private static int currentStack = 0;
-	private static int maxStack = 0;
-	private static int whileCount = 0;
-	private static int ifCount = 0;
-	private static int identationLevel = 1;
+  private static List<String> symbol_table;
+  private static List<Character> symbol_type;
+  private static List<Exception> compilerExceptions;
+  private static Map<String, Integer> symbolAccess;
+  private static int currentStack = 0;
+  private static int maxStack = 0;
+  private static int whileCount = 0;
+  private static int ifCount = 0;
+  private static int identationLevel = 1;
   
   public static void main(String[] args) throws Exception
   {
@@ -94,7 +94,6 @@ tokens
     System.out.println(".end method");
     
     symbol_table.remove(0); //Retira args
-    symbol_type.remove(0); //Retira tipo args
     for(String variable : symbol_table) {
       if(!symbolAccess.containsKey(variable)) {
         System.err.println("WARNING: variable '"+ variable + "' is declared but never used");
@@ -116,8 +115,6 @@ tokens
 		throw new IllegalArgumentException("Compiler found some errors on your code :(");
 	}
 
-	System.err.println(symbol_table);
-	System.err.println(symbol_type);
 	
 	
   }
@@ -307,7 +304,6 @@ tokens
   {
 	boolean isVarArray = false;
 	boolean isAttribArray = false;
-	int idxAccess = 0;
   }
   VARIABLE 
   (
@@ -327,14 +323,13 @@ tokens
 	  {
 		if(isAttribArray){
 			generateCode("newarray int", 0);
-			type = ARRAY_TYPE;
 		} 
 		
 		String store = !isAttribArray && type == INTEGER_TYPE ? "istore " : "astore ";	
 		store = isVarArray ? "iastore" : store;
 		if(symbol_table.contains($VARIABLE.text)) {
 			Character symbolType = symbol_type.get(symbol_table.indexOf($VARIABLE.text));
-			if(symbolType.equals(type) || (isVarArray && type == INTEGER_TYPE)) { // Como so guarda array de inteiros por enquanto, caso seja um acesso a posicao do array e o tipo da exp for i entao aceita
+			if(symbolType.equals(type)) {
 				generateCode(store + (isVarArray ? "" : symbol_table.indexOf($VARIABLE.text)), isVarArray ? -2 : -1);
 			} else {
 				compilerExceptions.add(new IllegalArgumentException("[ERROR] VARIABLE TYPE MISMATCH:  trying to set an '"+type+"' value on variable '"+$VARIABLE.text+"' of type '"+symbolType+"'. Position [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]"));
@@ -426,14 +421,13 @@ tokens
 		{
 			isArray = true;
 			generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
-			$type = ARRAY_TYPE;
 		}
 		OPEN_B expression CLOSE_B
 	)?
     { 
 	if(isArrayLength) {
 		generateCode("aload "+ symbol_table.indexOf($VARIABLE.text), 1);
-		generateCode("arraylength", 1);		
+		generateCode("arraylength", 1);
 		$type = INTEGER_TYPE;
 	} else {
       if(symbol_table.contains($VARIABLE.text)) {

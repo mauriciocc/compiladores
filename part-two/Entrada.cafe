@@ -1,8 +1,5 @@
 v = array 10
-v = 10
-v = "Larara"
 v[0] = 123
-v[0] = "coala"
 print v[0]
 print #v
 
