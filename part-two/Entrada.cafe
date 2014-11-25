@@ -1,8 +1,13 @@
-v = array 10
-c = array 10
-d = array 10
-v[0] = 123
-print v[0]
-print #v
-print #c
-print #d
+void cubo()
+{
+    wabliuve = 4
+    print wabliuve * wabliuve * wabliuve
+    hukhuk()
+}
+
+
+n = 1
+cubo()
+nadegas()
+print n
+

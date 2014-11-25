@@ -31,6 +31,7 @@ tokens
   CLOSE_B = ']';
   HASH_TAG = '#';  
   ARRAY = 'array';
+  VOID = 'void';
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
@@ -40,16 +41,21 @@ tokens
   import java.util.List;
   import java.util.ArrayList;
   import java.util.Map;
+  import java.util.Set;
+  import java.util.HashSet;
   import java.util.HashMap;
 }
 
 @members
 {
 	
+	public static final String MAIN_CONTEXT = "main";
 	public static final Character INTEGER_TYPE = 'i';
 	public static final Character STRING_TYPE = 's';
 	public static final Character ARRAY_TYPE = 'a';
 	
+	private static String currentContext = MAIN_CONTEXT;
+	private static Set<String> functions = new HashSet<String>();
   private static List<String> symbol_table;
   private static List<Character> symbol_type;
   private static List<Exception> compilerExceptions;
@@ -58,7 +64,7 @@ tokens
   private static int maxStack = 0;
   private static int whileCount = 0;
   private static int ifCount = 0;
-  private static int identationLevel = 1;
+  private static int identationLevel = 0;
   
   public static void main(String[] args) throws Exception
   {
@@ -84,46 +90,73 @@ tokens
     System.out.println("\treturn");
     System.out.println(".end method");
 	System.out.println();
-    System.out.println(".method public static main([Ljava/lang/String;)V");               
-	System.out.println();
+
     parser.program();
-	System.out.println();
-    System.out.println("return");
-    System.out.println(".limit stack " + maxStack);    
-    System.out.println(".limit locals " + symbol_table.size());    
-    System.out.println(".end method");
     
-    symbol_table.remove(0); //Retira args
-    symbol_type.remove(0);
-
-	System.err.println("SYMBOL TABLE: " + symbol_table);
-	System.err.println("SYMBOL TYPE: " + symbol_type);
-
-    for(String variable : symbol_table) {
-      if(!symbolAccess.containsKey(variable)) {
-        System.err.println("WARNING: variable '"+ variable + "' is declared but never used");
-      }
-    }
-	
-	if(!compilerExceptions.isEmpty()) {
-		System.err.println();
-		System.err.println();
-		System.err.println("------------------------ COMPILER ERROR REPORT --------------------------------");
-		System.err.println();
-		for(Exception e : compilerExceptions) {
-			System.err.println(e.getMessage());
-		}
-		System.err.println();
-		System.err.println("-------------------------------------------------------------------------------");
-		System.err.println();
-		System.err.println();
-		throw new IllegalArgumentException("Compiler found some errors on your code :(");
-	}
-
-	
+	generateCompileWarningsAndErrors();	
 	
   }
 
+  	private static void generateCompileWarningsAndErrors() {
+  		boolean isMainMethod = currentContext.equals(MAIN_CONTEXT);
+  		System.err.println("------------------------ COMPILER REPORT FOR METHOD: "+currentContext+"() "+"--------------------------------");
+  		if(isMainMethod) {
+			symbol_table.remove(0); //Retira args
+		    symbol_type.remove(0);
+	    }
+
+		System.err.println("SYMBOL TABLE: " + symbol_table);
+		System.err.println("SYMBOL TYPE: " + symbol_type);
+
+	    for(String variable : symbol_table) {
+	      if(!symbolAccess.containsKey(variable)) {
+	        System.err.println("WARNING: variable '"+ variable + "' is declared but never used");
+	      }
+	    }
+		
+		if(!compilerExceptions.isEmpty()) {
+			System.err.println();
+			System.err.println();
+			System.err.println("------------------------ COMPILER ERROR REPORT --------------------------------");
+			System.err.println();
+			for(Exception e : compilerExceptions) {
+				System.err.println(e.getMessage());
+			}
+			System.err.println();
+			System.err.println("-------------------------------------------------------------------------------");
+			System.err.println();
+			System.err.println();
+			if(isMainMethod) {
+				throw new IllegalArgumentException("Compiler found some errors on your code :(");
+			}
+		}
+  	}
+
+	private static void generateEndMethod() {
+	    generateCode("return", 0);	    
+	    generateCode(".limit locals " + symbol_table.size(), 0);
+	    generateCode(".limit stack " + maxStack, 0);	    
+	    incrIdent(-1);
+	    System.out.println(".end method");
+	}
+
+	private static void switchContext(String context) {   
+		functions.add(context);
+		symbol_table.clear();
+		symbol_type.clear();
+		compilerExceptions.clear();
+		symbolAccess.clear();
+		currentStack = 0;
+		maxStack = 0;
+		whileCount = 0;
+		ifCount = 0;
+		identationLevel = 0;	
+		if(context.equals(MAIN_CONTEXT)) {
+			symbol_table.add("args");   
+			symbol_type.add('s');		
+		}
+		currentContext = context;
+	}
 
     private static void generateCode(String code, int val) {   
 	    generateCode(code, val, true);
@@ -136,40 +169,37 @@ tokens
 		} else {
 			System.out.print(code);
 		}
-		  incrementStack(val);      
+		incrementStack(val);      
     }
   
   
-  private static void incrementStack(int val) {         
-      currentStack += val;
-      if(currentStack > maxStack) {
-        maxStack = currentStack;
-      }
-    }
-  
-  private static void registerVarAccess(String name) {
-    symbolAccess.put(name, symbolAccess.containsKey(name) ? symbolAccess.get(name)+1 : 1);
-  }
-  
-  private static String replicate(String s, int times) {
-  StringBuilder sb = new StringBuilder("");
-	for(int i = 0; i < times; i++) {
-		sb.append(s);
+	private static void incrementStack(int val) {         
+		currentStack += val;
+		if(currentStack > maxStack) {
+	    	maxStack = currentStack;
+		}
 	}
-	return sb.toString(); 
   
-  }
+	private static void registerVarAccess(String name) {
+		symbolAccess.put(name, symbolAccess.containsKey(name) ? symbolAccess.get(name)+1 : 1);
+	}
   
-  private static String ident(String s) {
-	return replicate("\t", identationLevel) + s;
-  }
+	private static String replicate(String s, int times) {
+		StringBuilder sb = new StringBuilder("");
+		for(int i = 0; i < times; i++) {
+			sb.append(s);
+		}
+		return sb.toString(); 
+	}
   
-  private static void incrIdent(int i) {
-	identationLevel += i;
-  }
-  
-      
-    
+	private static String ident(String s) {
+		return replicate("\t", identationLevel) + s;
+	}
+
+	private static void incrIdent(int i) {
+		identationLevel += i;
+	}
+
 }
 
 /*---------------- LEXER RULES ----------------*/
@@ -184,13 +214,55 @@ tokens
   /*---------------- PARSER RULES ----------------*/
   
   program
-  :  ( statement )*
-    ;
+  :  
+  	( function )* 
+  	{
+  		generateCode(".method public static main([Ljava/lang/String;)V", 0);
+  		incrIdent(1);
+  	}
+  	( statement )*
+  	{  		
+  		generateEndMethod();
+  	}
+  ;
   
+  function
+  : 
+  	VOID VARIABLE 
+  	{ 
+  		generateCode(".method public static "+$VARIABLE.text+"()V", 0); 
+  		switchContext($VARIABLE.text);
+  		incrIdent(1);
+  	}
+  	OPEN_P CLOSE_P OPEN_C ( statement )* CLOSE_C
+  	{
+  		generateCompileWarningsAndErrors();
+		generateEndMethod();
+		System.out.println();		
+  		switchContext("main");
+  	}
+  ;
+
+  
+
   statement
-  : print | attribuition | loop | if_cond
+  : print | attribuition | loop | if_cond | call
   ;  
   
+call 
+  :
+  	VARIABLE OPEN_P CLOSE_P
+  	{ 
+  		if(functions.contains($VARIABLE.text)) {
+  			generateCode("invokestatic Teste/"+$VARIABLE.text+"()V", 0); 
+		} else {
+	  		compilerExceptions.add(
+				new IllegalStateException("[ERROR] TRYING TO CALL UNDEFINED FUNCTION '"+$VARIABLE.text+"()'. POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
+			);		
+	  	}  		
+  	}
+  ;
+
   loop
   : 
        	{				

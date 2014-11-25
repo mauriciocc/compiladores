@@ -1,3 +1,4 @@
+cls
 rm Cafe.tokens
 rm CafeLexer*
 rm CafeParser*
