@@ -207,12 +207,12 @@ private static void cout(Object text) {
 		identationLevel += i;
 	}
 
-	private static String joinOn(Iterable<String> it, String on) {
+	private static String join(Iterable<String> it) {
 		StringBuilder sb = new StringBuilder();
 		for(String s : it) {
-			sb.append(s).append(",");
+			sb.append(s);
 		}
-		return sb.deleteCharAt(sb.lastIndexOf(",")).toString();
+		return sb.toString();
 	}
 
 }
@@ -266,7 +266,7 @@ private static void cout(Object text) {
 
   parameters
   :
-  	parameter  ( COMMA { generateCode(",", 0, false); } parameter )*
+  	parameter  ( COMMA parameter )*
   ;
 
   parameter
@@ -301,7 +301,7 @@ call
   	( 
   		arg = arguments
   		{   			
-  			args = joinOn($arg.expressionArgs, ",");  			
+  			args = join($arg.expressionArgs);  			
   		}
 	)? 
   	CLOSE_P

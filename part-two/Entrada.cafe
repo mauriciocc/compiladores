@@ -1,9 +1,17 @@
-void quadrado(int n)
+int maior(int a, int b)
 {
-    a = n * n
-    print a
+    if a > b
+	{
+        c = a
+	}
+    else
+	{
+        c = b
+    }
+    return c
 }
 
 
-quadrado(8)
+x = 8
+print maior(4, x)
 
