@@ -32,6 +32,9 @@ tokens
   HASH_TAG = '#';  
   ARRAY = 'array';
   VOID = 'void';
+  INTEGER_TKN = 'int';
+  STRING_TKN = 'str';
+  COMMA = ',';
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
@@ -96,6 +99,10 @@ tokens
 	generateCompileWarningsAndErrors();	
 	
   }
+
+private static void cout(Object text) {
+	System.err.println(text);
+}
 
   	private static void generateCompileWarningsAndErrors() {
   		boolean isMainMethod = currentContext.equals(MAIN_CONTEXT);
@@ -200,6 +207,14 @@ tokens
 		identationLevel += i;
 	}
 
+	private static String joinOn(Iterable<String> it, String on) {
+		StringBuilder sb = new StringBuilder();
+		for(String s : it) {
+			sb.append(s).append(",");
+		}
+		return sb.deleteCharAt(sb.lastIndexOf(",")).toString();
+	}
+
 }
 
 /*---------------- LEXER RULES ----------------*/
@@ -218,24 +233,30 @@ tokens
   	( function )* 
   	{
   		generateCode(".method public static main([Ljava/lang/String;)V", 0);
+  		System.out.println();
   		incrIdent(1);
   	}
   	( statement )*
   	{  		
+  		System.out.println();
   		generateEndMethod();
   	}
   ;
   
   function
   : 
-  	VOID VARIABLE 
+  	(VOID | INTEGER_TKN | STRING_TKN) VARIABLE 
   	{ 
-  		generateCode(".method public static "+$VARIABLE.text+"()V", 0); 
+  		generateCode(".method public static "+$VARIABLE.text+"(", 0, false); 
   		switchContext($VARIABLE.text);
+  	}
+  	OPEN_P (parameters)? CLOSE_P 
+  	{
+  		generateCode(")V", 0); 
   		incrIdent(1);
   	}
-  	OPEN_P CLOSE_P OPEN_C ( statement )* CLOSE_C
-  	{
+  	OPEN_C ( statement )* CLOSE_C
+  	{  		
   		generateCompileWarningsAndErrors();
 		generateEndMethod();
 		System.out.println();		
@@ -243,7 +264,28 @@ tokens
   	}
   ;
 
-  
+  parameters
+  :
+  	parameter  ( COMMA { generateCode(",", 0, false); } parameter )*
+  ;
+
+  parameter
+  :
+  	(
+  		typed = (INTEGER_TKN | STRING_TKN)
+	)
+  	 VARIABLE
+  	 {
+  	 	symbol_table.add($VARIABLE.text);
+  	 	boolean isInt = $typed.type == INTEGER_TKN;
+  	 	symbol_type.add(isInt ? INTEGER_TYPE : STRING_TYPE);
+  	 	if(isInt) {
+  	 		 generateCode("I", 0, false);
+  	 	} else {
+  	 		generateCode("Ljava/lang/String;", 0, false);
+  	 	}
+  	 }
+  ;
 
   statement
   : print | attribuition | loop | if_cond | call
@@ -251,17 +293,55 @@ tokens
   
 call 
   :
-  	VARIABLE OPEN_P CLOSE_P
+  	{
+  		String args = "";
+  	}
+  	VARIABLE 
+  	OPEN_P 
+  	( 
+  		arg = arguments
+  		{   			
+  			args = joinOn($arg.expressionArgs, ",");  			
+  		}
+	)? 
+  	CLOSE_P
   	{ 
-  		if(functions.contains($VARIABLE.text)) {
-  			generateCode("invokestatic Teste/"+$VARIABLE.text+"()V", 0); 
+		if(functions.contains($VARIABLE.text)) {
+  			generateCode("invokestatic Teste/"+$VARIABLE.text+"("+args+")V", 0); 
 		} else {
 	  		compilerExceptions.add(
-				new IllegalStateException("[ERROR] TRYING TO CALL UNDEFINED FUNCTION '"+$VARIABLE.text+"()'. POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
+				new IllegalStateException("[ERROR] TRYING TO CALL UNDEFINED FUNCTION '"+$VARIABLE.text+"("+args+")'. POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
 			);		
-	  	}  		
+	  	} 
   	}
   ;
+
+arguments returns [List<String> expressionArgs]
+@init {
+	$expressionArgs = new ArrayList<String>();
+}
+: 
+	( 
+		a = argument {$expressionArgs.add($a.expArg);} 
+	)
+	( 
+		COMMA ( 
+				a = argument 
+					{						
+						$expressionArgs.add($a.expArg);
+					}
+
+				)
+	)*	
+;
+
+argument returns [String expArg]
+: 
+	( 
+		exp = expression
+		{$expArg = $exp.type == INTEGER_TYPE ? "I" : "Ljava/lang/String;";}
+	)
+;
 
   loop
   : 

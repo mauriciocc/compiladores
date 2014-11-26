@@ -1,13 +1,9 @@
-void cubo()
+void quadrado(int n)
 {
-    wabliuve = 4
-    print wabliuve * wabliuve * wabliuve
-    hukhuk()
+    a = n * n
+    print a
 }
 
 
-n = 1
-cubo()
-nadegas()
-print n
+quadrado(8)
 

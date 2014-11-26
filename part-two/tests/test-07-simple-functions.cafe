@@ -1,0 +1,26 @@
+// shows the divisors of a given number, then prints '1234'
+
+void test()
+{
+    d = 1234
+    print d
+}
+
+void divisors()
+{
+    print "please type a positive integer:"
+    n = read_int
+    d = 1
+    while d <= n
+    {
+        if n % d == 0
+        {
+            print d
+        }
+        d = d + 1
+    }
+}
+
+divisors()
+test()
+
