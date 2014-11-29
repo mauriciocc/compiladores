@@ -11,7 +11,17 @@ int maior(int a, int b)
     return c
 }
 
+str teste() {
+	return "Larara"
+}
+
+str cambio(int valor, str texto) {
+	print valor
+	return texto
+}
+
 
 x = 8
 print maior(4, x)
-
+print teste()
+print cambio(5, "Opa lala")

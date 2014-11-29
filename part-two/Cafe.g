@@ -35,6 +35,7 @@ tokens
   INTEGER_TKN = 'int';
   STRING_TKN = 'str';
   COMMA = ',';
+  RETURN_TKN = 'return';
 }
 
 /*---------------- COMPILER INTERNALS ----------------*/
@@ -56,9 +57,11 @@ tokens
 	public static final Character INTEGER_TYPE = 'i';
 	public static final Character STRING_TYPE = 's';
 	public static final Character ARRAY_TYPE = 'a';
+	public static final Character VOID_TYPE = 'V';
 	
 	private static String currentContext = MAIN_CONTEXT;
-	private static Set<String> functions = new HashSet<String>();
+	private static List<String> functions = new ArrayList<String>();
+	private static List<String> functionReturnType = new ArrayList<String>();
   private static List<String> symbol_table;
   private static List<Character> symbol_type;
   private static List<Exception> compilerExceptions;
@@ -139,16 +142,19 @@ private static void cout(Object text) {
 		}
   	}
 
-	private static void generateEndMethod() {
-	    generateCode("return", 0);	    
+	private static void generateEndMethod(boolean generateReturn) {
+		if(generateReturn){
+	    	generateCode("return", 0);	    
+	    }
 	    generateCode(".limit locals " + symbol_table.size(), 0);
 	    generateCode(".limit stack " + maxStack, 0);	    
 	    incrIdent(-1);
 	    System.out.println(".end method");
 	}
 
-	private static void switchContext(String context) {   
+	private static void switchContext(String context, String returnType) {   
 		functions.add(context);
+		functionReturnType.add(returnType);
 		symbol_table.clear();
 		symbol_type.clear();
 		compilerExceptions.clear();
@@ -215,6 +221,17 @@ private static void cout(Object text) {
 		return sb.toString();
 	}
 
+	private static boolean invokeFunction(String function, String args, int line, int charPosition) {		
+		if(functions.contains(function)) {
+  			generateCode("invokestatic Teste/"+function+"("+args+")V", 0); 
+  			return true;
+		} else {
+	  		compilerExceptions.add(
+				new IllegalStateException("[ERROR] TRYING TO CALL UNDEFINED FUNCTION '"+function+"("+args+")'. POSITION [" + line + ","+charPosition+"]")
+			);	
+			return false;	
+	  	} 
+	}
 }
 
 /*---------------- LEXER RULES ----------------*/
@@ -239,28 +256,44 @@ private static void cout(Object text) {
   	( statement )*
   	{  		
   		System.out.println();
-  		generateEndMethod();
+  		generateEndMethod(true);
   	}
   ;
   
   function
-  : 
-  	(VOID | INTEGER_TKN | STRING_TKN) VARIABLE 
+  :
+  {
+  	String returnType = "V";
+  	boolean gotReturn = false;
+  }
+  	( 
+  		op = (VOID | INTEGER_TKN | STRING_TKN)
+  		{
+  			
+  			if($op.type == VOID) {
+  				returnType = "V";
+  				} else if($op.type == INTEGER_TKN) { 
+  					returnType = "I";
+  					} else if($op.type == STRING_TKN) {
+  						returnType = "Ljava/lang/String;";
+  					}
+  		}
+	) VARIABLE 
   	{ 
   		generateCode(".method public static "+$VARIABLE.text+"(", 0, false); 
-  		switchContext($VARIABLE.text);
+  		switchContext($VARIABLE.text, returnType);
   	}
   	OPEN_P (parameters)? CLOSE_P 
   	{
-  		generateCode(")V", 0); 
+  		generateCode(")"+returnType, 0); 
   		incrIdent(1);
   	}
-  	OPEN_C ( statement )* CLOSE_C
+  	OPEN_C ( statement )* (return_rule {gotReturn = true;})? CLOSE_C
   	{  		
-  		generateCompileWarningsAndErrors();
-		generateEndMethod();
+  		generateCompileWarningsAndErrors();  		
+		generateEndMethod(!gotReturn);
 		System.out.println();		
-  		switchContext("main");
+  		switchContext("main", "V");
   	}
   ;
 
@@ -291,7 +324,7 @@ private static void cout(Object text) {
   : print | attribuition | loop | if_cond | call
   ;  
   
-call 
+call returns [char type]
   :
   	{
   		String args = "";
@@ -307,7 +340,9 @@ call
   	CLOSE_P
   	{ 
 		if(functions.contains($VARIABLE.text)) {
-  			generateCode("invokestatic Teste/"+$VARIABLE.text+"("+args+")V", 0); 
+			String typeStr = functionReturnType.get(functions.indexOf($VARIABLE.text));
+			$type = typeStr.equals("I") ? INTEGER_TYPE : typeStr.equals("V") ? VOID_TYPE : STRING_TYPE;
+  			generateCode("invokestatic Teste/"+$VARIABLE.text+"("+args+")"+functionReturnType.get(functions.indexOf($VARIABLE.text)), 0); 
 		} else {
 	  		compilerExceptions.add(
 				new IllegalStateException("[ERROR] TRYING TO CALL UNDEFINED FUNCTION '"+$VARIABLE.text+"("+args+")'. POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
@@ -343,11 +378,26 @@ argument returns [String expArg]
 	)
 ;
 
+return_rule returns [String type]
+:
+	{ 
+		$type = "V";
+	}
+	RETURN_TKN 
+	( 
+		exp = expression
+		{
+			$type = $exp.type == INTEGER_TYPE ? "I" : "Ljava/lang/String;";
+			generateCode($exp.type == INTEGER_TYPE ? "ireturn" : "areturn", 0);
+		}
+	)?
+;
+
   loop
   : 
        	{				
 			whileCount++;
-			int local  = whileCount;				
+		int local  = whileCount;				
 			System.out.println();			
 			generateCode("BEGIN_WHILE_"+(local)+":", 0);
 		}
@@ -425,12 +475,12 @@ argument returns [String expArg]
   { generateCode("getstatic java/lang/System/out Ljava/io/PrintStream;", 1); }
 	  (		  
 		  type = expression 
-		  { 
+		  { 		  	
 		  	if(type == ARRAY_TYPE) {
 		  		compilerExceptions.add(
 					new IllegalStateException("[ERROR] PRINT OF ARRAY NOT IMPLEMENTED YET. POSITION [" + $PRINT.line+ ","+$PRINT.getCharPositionInLine()+"]")
 				);	
-		  	} else {
+		  	} else {		  		
 				if(type == INTEGER_TYPE){
 					generateCode("invokevirtual  java/io/PrintStream/println(I)V", -2);
 				} else {
@@ -658,5 +708,12 @@ argument returns [String expArg]
 		generateCode("invokestatic Runtime/readString()Ljava/lang/String;", 1);
 		$type = STRING_TYPE;
 	}
+	|  
+		(
+			c = call
+			{
+				$type = $c.type;
+			}
+		)
     ;
   
