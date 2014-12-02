@@ -62,6 +62,8 @@ tokens
 	private static String currentContext = MAIN_CONTEXT;
 	private static List<String> functions = new ArrayList<String>();
 	private static List<String> functionReturnType = new ArrayList<String>();
+	public static ArrayList<String> functionParameters = new ArrayList<String>();
+
   private static List<String> symbol_table;
   private static List<Character> symbol_type;
   private static List<Exception> compilerExceptions;
@@ -249,7 +251,8 @@ private static void cout(Object text) {
   :  
   	( function )* 
   	{
-  		generateCode(".method public static main([Ljava/lang/String;)V", 0);
+  		switchContext("main", "V");
+  		generateCode(".method public static main([Ljava/lang/String;)V", 0);  		  		
   		System.out.println();
   		incrIdent(1);
   	}
@@ -260,10 +263,11 @@ private static void cout(Object text) {
   	}
   ;
   
-  function
+  function returns [String returnType]
   :
-  {
-  	String returnType = "V";
+  {  	
+  	$returnType = "V";
+  	String args = "";
   	boolean gotReturn = false;
   }
   	( 
@@ -271,38 +275,40 @@ private static void cout(Object text) {
   		{
   			
   			if($op.type == VOID) {
-  				returnType = "V";
+  				$returnType = "V";
   				} else if($op.type == INTEGER_TKN) { 
-  					returnType = "I";
+  					$returnType = "I";
   					} else if($op.type == STRING_TKN) {
-  						returnType = "Ljava/lang/String;";
+  						$returnType = "Ljava/lang/String;";
   					}
   		}
 	) VARIABLE 
-  	{ 
-  		generateCode(".method public static "+$VARIABLE.text+"(", 0, false); 
-  		switchContext($VARIABLE.text, returnType);
-  	}
-  	OPEN_P (parameters)? CLOSE_P 
+	{
+		switchContext($VARIABLE.text, $returnType);
+	} 
+  	OPEN_P ( p = parameters {args = $p.type;})? CLOSE_P 
   	{
-  		generateCode(")"+returnType, 0); 
+  		functionParameters.add(args);
+  		generateCode(".method public static "+$VARIABLE.text+"("+args+")"+$returnType, 0);  		
   		incrIdent(1);
   	}
-  	OPEN_C ( statement )* (return_rule {gotReturn = true;})? CLOSE_C
+  	OPEN_C 
+  		( statement )* 
+	CLOSE_C
   	{  		
   		generateCompileWarningsAndErrors();  		
 		generateEndMethod(!gotReturn);
 		System.out.println();		
-  		switchContext("main", "V");
   	}
   ;
 
-  parameters
+  parameters returns [String type]
   :
-  	parameter  ( COMMA parameter )*
+  	{$type = "";}
+  	p = parameter {$type = $p.type;}  ( COMMA  (pa = parameter { $type += $pa.type; }) )*
   ;
 
-  parameter
+  parameter returns [String type]
   :
   	(
   		typed = (INTEGER_TKN | STRING_TKN)
@@ -313,15 +319,15 @@ private static void cout(Object text) {
   	 	boolean isInt = $typed.type == INTEGER_TKN;
   	 	symbol_type.add(isInt ? INTEGER_TYPE : STRING_TYPE);
   	 	if(isInt) {
-  	 		 generateCode("I", 0, false);
+  	 		$type = "I";  	 		 
   	 	} else {
-  	 		generateCode("Ljava/lang/String;", 0, false);
+  	 		$type = "Ljava/lang/String;";  	 		
   	 	}
   	 }
   ;
 
   statement
-  : print | attribuition | loop | if_cond | call
+  : print | attribuition | loop | if_cond | call | return_rule
   ;  
   
 call returns [char type]
@@ -330,19 +336,12 @@ call returns [char type]
   		String args = "";
   	}
   	VARIABLE 
-  	OPEN_P 
-  	( 
-  		arg = arguments
-  		{   			
-  			args = join($arg.expressionArgs);  			
-  		}
-	)? 
-  	CLOSE_P
+  	OPEN_P ( arguments )? CLOSE_P
   	{ 
 		if(functions.contains($VARIABLE.text)) {
 			String typeStr = functionReturnType.get(functions.indexOf($VARIABLE.text));
 			$type = typeStr.equals("I") ? INTEGER_TYPE : typeStr.equals("V") ? VOID_TYPE : STRING_TYPE;
-  			generateCode("invokestatic Teste/"+$VARIABLE.text+"("+args+")"+functionReturnType.get(functions.indexOf($VARIABLE.text)), 0); 
+  			generateCode("invokestatic Teste/"+$VARIABLE.text+"("+functionParameters.get(functions.indexOf($VARIABLE.text))+")"+functionReturnType.get(functions.indexOf($VARIABLE.text)), 0); 
 		} else {
 	  		compilerExceptions.add(
 				new IllegalStateException("[ERROR] TRYING TO CALL UNDEFINED FUNCTION '"+$VARIABLE.text+"("+args+")'. POSITION [" + $VARIABLE.line+ ","+$VARIABLE.getCharPositionInLine()+"]")
@@ -351,46 +350,31 @@ call returns [char type]
   	}
   ;
 
-arguments returns [List<String> expressionArgs]
-@init {
-	$expressionArgs = new ArrayList<String>();
-}
-: 
-	( 
-		a = argument {$expressionArgs.add($a.expArg);} 
-	)
-	( 
-		COMMA ( 
-				a = argument 
-					{						
-						$expressionArgs.add($a.expArg);
-					}
-
-				)
-	)*	
-;
-
-argument returns [String expArg]
-: 
-	( 
-		exp = expression
-		{$expArg = $exp.type == INTEGER_TYPE ? "I" : "Ljava/lang/String;";}
-	)
-;
+arguments
+    :
+        expression (COMMA expression)*
+    ;
 
 return_rule returns [String type]
 :
 	{ 
+		boolean gotExpression = false;
 		$type = "V";
 	}
 	RETURN_TKN 
 	( 
 		exp = expression
 		{
+			gotExpression = true;
 			$type = $exp.type == INTEGER_TYPE ? "I" : "Ljava/lang/String;";
 			generateCode($exp.type == INTEGER_TYPE ? "ireturn" : "areturn", 0);
 		}
-	)?
+	)
+	{
+		if(!gotExpression) {
+			generateCode("return", 0);
+		}
+	}
 ;
 
   loop
@@ -587,7 +571,9 @@ return_rule returns [String type]
 				}
 			  }
   )*
-  {$type = $t1.type;}
+  {
+  	$type = $t1.type;
+  }
     ;
     
   exp_comparison
@@ -630,6 +616,13 @@ return_rule returns [String type]
 		generateCode("ldc " + $NUM.text, 1);
 		$type = INTEGER_TYPE;
 	}
+	|  
+	(
+		c = call
+		{
+			$type = $c.type;
+		}
+	)
 	| STRING
     { 
 		generateCode("ldc " + $STRING.text, 1);
@@ -708,12 +701,5 @@ return_rule returns [String type]
 		generateCode("invokestatic Runtime/readString()Ljava/lang/String;", 1);
 		$type = STRING_TYPE;
 	}
-	|  
-		(
-			c = call
-			{
-				$type = $c.type;
-			}
-		)
     ;
   

@@ -1,5 +1,5 @@
 // error using read
 
-read n // 'n' not declared yet
+read_int n // 'n' not declared yet
 print n
 
